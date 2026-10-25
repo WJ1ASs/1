@@ -1,0 +1,53 @@
+ # 1.定位到华语电视剧
+# 2.从2026必看片中提取到子页面的链接地址
+# 3.请求子页面的下载链接。拿到我们想要的下载数据
+import requests
+import re
+import time
+import random
+
+headers = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                   " AppleWebKit/537.36 (KHTML, like Gecko)"
+                   " Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0"),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "zh-CN,zh;q=0.9",
+}
+url = "https://dygod.net/"
+headers["Referer"] = url  # 伪装从主页点进来，避免子页面被反爬断连
+response = requests.get(url, headers=headers, timeout=10)
+response.encoding = "gb2312"      # 先告诉 requests 怎么解码
+wjs = response.text               # 这时才解码
+obj1 = re.compile(r'<div class="co_content222">.*?</li>(?P<jj>.*?)</ul>', re.S)
+obj2 = re.compile(r"<li><a href='(?P<her>.*?)'", re.S)
+obj3 = re.compile(r'<h1>.*?《(?P<name>.*?)》.*?path=(?P<ul>.*?)\?', re.S)
+ret = obj1.finditer(wjs)
+lst = []
+for mm in ret:
+    kl = mm.group("jj")
+
+    ret2 = obj2.finditer(kl)
+    for kk in ret2:
+        kl2 = kk.group("her")
+        new_ul = url + kl2.strip("/")
+        lst.append(new_ul)
+
+for mm in lst:
+    try:
+        res1 = requests.get(mm, headers=headers, timeout=10)
+        res1.encoding = "gb2312"
+        jjs = res1.text
+        ret3 = obj3.search(jjs)
+        if ret3:  # 等价于 if ret3 is not None
+            print(ret3.group("name"))
+            print(ret3.group("ul"))
+        else:
+            print("没有匹配到内容：", mm)
+    except requests.exceptions.ConnectionError:
+        print("连接被服务器断开，跳过：", mm)
+    except requests.exceptions.Timeout:
+        print("请求超时，跳过：", mm)
+    except requests.exceptions.RequestException as e:
+        print("请求出错：", mm, e)
+
+
